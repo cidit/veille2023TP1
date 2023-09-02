@@ -26,19 +26,19 @@ if __name__ == "__main__":
     
     fig, ax = plt.subplots()
     xdata, ydata = [], []
-    ln, = ax.plot([], [], 'r+')
-
+    static_hm = ax.imshow(matrix)
+    dynamic_hm = ax.imshow(matrix, zorder=1)
+    
     def init():
-        ax.set_xlim(0, 2*np.pi)
-        ax.set_ylim(-1, 1)
-        return ln,
+        # ax.set_xlim(0, 2*np.pi)
+        # ax.set_ylim(-1, 1)
+        return dynamic_hm,
 
     def update(frame):
-        xdata.append(frame)
-        ydata.append(np.sin(frame))
-        ln.set_data(xdata, ydata)
-        return ln,
+        new_matrix = np.random.rand(7, 7)
+        dynamic_hm.set_data(new_matrix)
+        return dynamic_hm,
 
-    ani = FuncAnimation(fig, update, frames=np.linspace(0, 2*np.pi, 128),
+    ani = FuncAnimation(fig, update, frames=None,
                         init_func=init, blit=True)
     plt.show()
