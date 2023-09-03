@@ -16,18 +16,12 @@ def simple_plot():
 if __name__ == "__main__":
     print("Hello, World!")
 
-    matrix = np.array([[0.8, 2.4, 2.5, 3.9, 0.0, 4.0, 0.0],
-                    [2.4, 0.0, 4.0, 1.0, 2.7, 0.0, 0.0],
-                    [1.1, 2.4, 0.8, 4.3, 1.9, 4.4, 0.0],
-                    [0.6, 0.0, 0.3, 0.0, 3.1, 0.0, 0.0],
-                    [0.7, 1.7, 0.6, 2.6, 2.2, 6.2, 0.0],
-                    [1.3, 1.2, 0.0, 0.0, 0.0, 3.2, 5.1],
-                    [0.1, 2.0, 0.0, 1.4, 0.0, 1.9, 6.3]])
+    matrix = np.random.rand(100, 100)
     
     fig, ax = plt.subplots()
     xdata, ydata = [], []
-    static_hm = ax.imshow(matrix)
-    dynamic_hm = ax.imshow(matrix, zorder=1)
+    static_hm = ax.imshow(matrix, cmap="Wistia", alpha=0.25)
+    dynamic_hm = ax.imshow(matrix, zorder=1, cmap="magma_r", alpha=0.25)
     
     def init():
         # ax.set_xlim(0, 2*np.pi)
@@ -35,7 +29,7 @@ if __name__ == "__main__":
         return dynamic_hm,
 
     def update(frame):
-        new_matrix = np.random.rand(7, 7)
+        new_matrix = np.random.rand(100, 100)
         dynamic_hm.set_data(new_matrix)
         return dynamic_hm,
 
