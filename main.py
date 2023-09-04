@@ -34,9 +34,8 @@ if __name__ == "__main__":
         return (dynamic_hm),
 
     # reference to `ani` must be kept alive because it needs to maintain an internal timer that's gonna get garbage collected otherwise.
-    ani = FuncAnimation(fig, func=update, 
-                        init_func=init, 
-                        frames=None,
-                        blit=True, interval=50)
+    # ani = FuncAnimation(fig, update, init_func=init, 
+    #                     frames=None,
+    #                     blit=True, interval=50)
     
     plt.show()
