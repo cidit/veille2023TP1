@@ -16,7 +16,7 @@ def simple_plot():
 if __name__ == "__main__":
     print("Hello, World!")
 
-    matrix = np.zeros((100, 100))
+    matrix = np.random.rand(100, 100)
     
     fig, ax = plt.subplots()
     xdata, ydata = [], []
