@@ -3,6 +3,7 @@ import sys
 import gtfs_kit as gk
 import matplotlib.pyplot as plt
 import matplotlib.path as mp
+from matplotlib.patches import PathPatch
 from matplotlib.animation import FuncAnimation
 import numpy as np
 import sqlite3
@@ -13,25 +14,26 @@ def main():
 
     statics = Get.static_data()
     
-    instructions = []
-    for name, group in statics.shapes.sort_values('shape_pt_sequence').groupby('shape_id'):
-        coords = iter(zip(group['shape_pt_lat'], group['shape_pt_lon']))
-        start = next(coords)
-        instructions.append((mp.Path.MOVETO, start))
-        for coord in coords:
-            instructions.append((mp.Path.LINETO, coord))
-        instructions.append((mp.Path.CLOSEPOLY, start))
-    print(instructions)
-    
-    
+    instructions = parse_shape_instructions(statics)
+    # the following is pretty much a copy paste of https://matplotlib.org/stable/gallery/shapes_and_collections/path_patch.html#sphx-glr-gallery-shapes-and-collections-path-patch-py
+    codes, verts = zip(*instructions)
+    path = mp.Path(verts, codes)
+    patch = PathPatch(path)
+        
     fig, ax = plt.subplots()
     # static_hm = ax.imshow(matrix, cmap="Wistia", alpha=0.25)
     dynamic_hm = ax.imshow(np.zeros((100, 100)),
-                           zorder=1,
+                           zorder=-1,
                         #    alpha=0.25,
                            cmap="Blues",
                            vmin=0,
                            vmax=1)
+
+    patchmap = ax.add_patch(patch)
+    
+    x, y = zip(*path.vertices)
+    line, = ax.plot(x, y, 'go-')
+
     
     
     def update(frame):
@@ -71,6 +73,19 @@ class Get:
         
     def dynamic_data():
         pass
+    
+def parse_shape_instructions(f: gk.Feed):
+    instructions = []
+    for name, group in f.shapes.sort_values('shape_pt_sequence').groupby('shape_id'):
+        coords = iter(zip(group['shape_pt_lat'], group['shape_pt_lon']))
+        start = next(coords)
+        instructions.append((mp.Path.MOVETO, start))
+        for coord in coords:
+            instructions.append((mp.Path.LINETO, coord))
+        instructions.append((mp.Path.CLOSEPOLY, start))
+    return instructions
+    
+    
 
 if __name__ == "__main__":
     main()
