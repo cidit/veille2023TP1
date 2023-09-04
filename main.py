@@ -2,6 +2,7 @@ import pathlib
 import sys
 import gtfs_kit as gk
 import matplotlib.pyplot as plt
+import matplotlib.path as mp
 from matplotlib.animation import FuncAnimation
 import numpy as np
 import sqlite3
@@ -10,14 +11,22 @@ import sqlite3
 def main():
     print("Hello, World!")
 
-    matrix = np.random.rand(100, 100)
-    zeros = np.zeros((100, 100))
+    statics = Get.static_data()
     
-    Get.static_data()
+    instructions = []
+    for name, group in statics.shapes.sort_values('shape_pt_sequence').groupby('shape_id'):
+        coords = iter(zip(group['shape_pt_lat'], group['shape_pt_lon']))
+        start = next(coords)
+        instructions.append((mp.Path.MOVETO, start))
+        for coord in coords:
+            instructions.append((mp.Path.LINETO, coord))
+        instructions.append((mp.Path.CLOSEPOLY, start))
+    print(instructions)
+    
     
     fig, ax = plt.subplots()
     # static_hm = ax.imshow(matrix, cmap="Wistia", alpha=0.25)
-    dynamic_hm = ax.imshow(matrix,
+    dynamic_hm = ax.imshow(np.zeros((100, 100)),
                            zorder=1,
                         #    alpha=0.25,
                            cmap="Blues",
@@ -27,7 +36,7 @@ def main():
     
     def update(frame):
         new_matrix = np.random.rand(100, 100) 
-        dynamic_hm.set_data(new_matrix)
+        # dynamic_hm.set_data(new_matrix)
         return dynamic_hm,
     
 
@@ -59,7 +68,6 @@ class Get:
                 sys.exit(1)
         else: 
             return feed
-        
         
     def dynamic_data():
         pass
