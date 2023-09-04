@@ -11,13 +11,13 @@ def main():
     print("Hello, World!")
 
     matrix = np.random.rand(100, 100)
-    zeros = np.zeros((100, 100), dtype=int)
+    zeros = np.zeros((100, 100))
     
     Get.static_data()
     
     fig, ax = plt.subplots()
     # static_hm = ax.imshow(matrix, cmap="Wistia", alpha=0.25)
-    dynamic_hm = ax.imshow(zeros,
+    dynamic_hm = ax.imshow(matrix,
                            zorder=1,
                         #    alpha=0.25,
                            cmap="Blues",
@@ -28,7 +28,7 @@ def main():
     def update(frame):
         new_matrix = np.random.rand(100, 100) 
         dynamic_hm.set_data(new_matrix)
-        return (dynamic_hm)
+        return dynamic_hm,
     
 
     # reference to `ani` must be kept alive because it needs to maintain an internal timer that's gonna get garbage collected otherwise.
@@ -48,12 +48,15 @@ class Get:
             _type_: _description_
         """
         p = pathlib.Path("./data/gtfs.zip")
+        print(f"reading GTFS feed at {p}")
         feed = gk.read_feed(p, dist_units='km')
-        v = feed.validate(as_df=True, include_warnings=True)
-        print(f"GTFS Warnings and Errors:\n{v}")
-        any_err = len(v.loc[v['type'] == 'error']) > 0
-        if any_err:
-            sys.exit(1)
+        if "--validate" in sys.argv:
+            print("validating feed")
+            v = feed.validate(as_df=True, include_warnings=True)
+            print(f"GTFS Warnings and Errors:\n{v}")
+            any_err = len(v.loc[v['type'] == 'error']) > 0
+            if any_err:
+                sys.exit(1)
         else: 
             return feed
         
