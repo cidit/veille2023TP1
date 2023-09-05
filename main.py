@@ -14,19 +14,25 @@ def main():
 
     statics = Get.static_data()
     
-    instructions = parse_shape_instructions(statics)
+    shps = statics.shapes
     
-        
     fig, ax = plt.subplots()
     # static_hm = ax.imshow(matrix, cmap="Wistia", alpha=0.25)
     dynamic_hm = ax.imshow(np.zeros((100, 100)),
                            zorder=1,
-                        #    alpha=0.25,
+                           alpha=0.25,
+                            extent=[
+                                shps['shape_pt_lon'].min(),
+                                shps['shape_pt_lon'].max(),
+                                shps['shape_pt_lat'].min(),
+                                shps['shape_pt_lat'].max(),
+                            ],
                            cmap="Blues",
                            vmin=0,
                            vmax=1)
     
     
+    instructions = parse_shape_instructions(statics)
     # the following is pretty much a copy paste of https://matplotlib.org/stable/gallery/shapes_and_collections/path_patch.html#sphx-glr-gallery-shapes-and-collections-path-patch-py
     codes, verts = zip(*instructions)
     path = mp.Path(verts, codes)
@@ -35,7 +41,7 @@ def main():
                       lw=1)
     patchmap = ax.add_patch(patch)
     x, y = zip(*path.vertices)
-    line, = ax.plot(x, y, 'go-')
+    line, = ax.plot(x, y, 'g-', marker=None)
     line.remove()
 
     
@@ -51,7 +57,7 @@ def main():
                         frames=None,
                         blit=True, 
                         cache_frame_data=False)
-    
+    plt.gca().invert_yaxis()
     plt.show()
 
 class Get:
@@ -81,7 +87,7 @@ class Get:
 def parse_shape_instructions(f: gk.Feed):
     instructions = []
     for name, group in f.shapes.sort_values('shape_pt_sequence').groupby('shape_id'):
-        coords = iter(zip(group['shape_pt_lat'], group['shape_pt_lon']))
+        coords = iter(zip(group['shape_pt_lon'], group['shape_pt_lat']))
         start = next(coords)
         instructions.append((mp.Path.MOVETO, start))
         for coord in coords:
