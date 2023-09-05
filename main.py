@@ -18,27 +18,29 @@ def main():
     # the following is pretty much a copy paste of https://matplotlib.org/stable/gallery/shapes_and_collections/path_patch.html#sphx-glr-gallery-shapes-and-collections-path-patch-py
     codes, verts = zip(*instructions)
     path = mp.Path(verts, codes)
-    patch = PathPatch(path)
+    patch = PathPatch(path,
+                      facecolor="none",
+                      lw=1)
         
     fig, ax = plt.subplots()
     # static_hm = ax.imshow(matrix, cmap="Wistia", alpha=0.25)
     dynamic_hm = ax.imshow(np.zeros((100, 100)),
-                           zorder=-1,
+                           zorder=1,
                         #    alpha=0.25,
                            cmap="Blues",
                            vmin=0,
                            vmax=1)
 
     patchmap = ax.add_patch(patch)
-    
     x, y = zip(*path.vertices)
     line, = ax.plot(x, y, 'go-')
+    line.remove()
 
     
     
     def update(frame):
         new_matrix = np.random.rand(100, 100) 
-        # dynamic_hm.set_data(new_matrix)
+        dynamic_hm.set_data(new_matrix)
         return dynamic_hm,
     
 
@@ -82,7 +84,7 @@ def parse_shape_instructions(f: gk.Feed):
         instructions.append((mp.Path.MOVETO, start))
         for coord in coords:
             instructions.append((mp.Path.LINETO, coord))
-        instructions.append((mp.Path.CLOSEPOLY, start))
+        # instructions.append((mp.Path.CLOSEPOLY, start))
     return instructions
     
     
