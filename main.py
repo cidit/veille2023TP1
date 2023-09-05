@@ -15,12 +15,7 @@ def main():
     statics = Get.static_data()
     
     instructions = parse_shape_instructions(statics)
-    # the following is pretty much a copy paste of https://matplotlib.org/stable/gallery/shapes_and_collections/path_patch.html#sphx-glr-gallery-shapes-and-collections-path-patch-py
-    codes, verts = zip(*instructions)
-    path = mp.Path(verts, codes)
-    patch = PathPatch(path,
-                      facecolor="none",
-                      lw=1)
+    
         
     fig, ax = plt.subplots()
     # static_hm = ax.imshow(matrix, cmap="Wistia", alpha=0.25)
@@ -30,7 +25,14 @@ def main():
                            cmap="Blues",
                            vmin=0,
                            vmax=1)
-
+    
+    
+    # the following is pretty much a copy paste of https://matplotlib.org/stable/gallery/shapes_and_collections/path_patch.html#sphx-glr-gallery-shapes-and-collections-path-patch-py
+    codes, verts = zip(*instructions)
+    path = mp.Path(verts, codes)
+    patch = PathPatch(path,
+                      facecolor="none",
+                      lw=1)
     patchmap = ax.add_patch(patch)
     x, y = zip(*path.vertices)
     line, = ax.plot(x, y, 'go-')
@@ -70,8 +72,8 @@ class Get:
             any_err = len(v.loc[v['type'] == 'error']) > 0
             if any_err:
                 sys.exit(1)
-        else: 
-            return feed
+         
+        return feed
         
     def dynamic_data():
         pass
@@ -84,7 +86,6 @@ def parse_shape_instructions(f: gk.Feed):
         instructions.append((mp.Path.MOVETO, start))
         for coord in coords:
             instructions.append((mp.Path.LINETO, coord))
-        # instructions.append((mp.Path.CLOSEPOLY, start))
     return instructions
     
     
