@@ -13,6 +13,7 @@ import sqlite3
 import dotenv
 
 
+
 def main():
     print("Hello, World!")
     dotenv.load_dotenv()
@@ -55,6 +56,10 @@ def main():
     def update(frame):
         new_matrix = np.random.rand(1000, 1000) 
         dynamic_hm.set_data(new_matrix)
+        positions = Get.dynamic_data()
+        print(positions)
+        for p in positions:
+            print(p)
         return dynamic_hm,
     
 
@@ -88,11 +93,16 @@ class Get:
         return feed
         
     def dynamic_data():
-        dyndat_url = "https://api.stm.info/pub/od/gtfs-rt/ic/v2"
-        payload = requests.get(dyndat_url, headers={
+        dyndat_url = "https://api.stm.info/pub/od/gtfs-rt/ic/v2/vehiclePositions"
+        response = requests.get(dyndat_url, headers={
             "accept": "application/x-protobuf",
             "apiKey": os.getenv("API_KEY")
         })
+        msg = gtfs_realtime_pb2.FeedMessage()
+        msg.ParseFromString(response.content)
+        pos = map(lambda e: e.vehicle.position, msg.entity)
+        pos = map(lambda p: (p.longitude, p.latitude), pos)
+        return pos
         
 
 class DB:
