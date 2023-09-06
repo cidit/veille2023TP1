@@ -1,4 +1,5 @@
 import pathlib
+from dataclasses import dataclass
 import gtfs_realtime_pb2
 import os
 import requests
@@ -21,12 +22,12 @@ def main():
     fig, ax = plt.subplots()
     statics = Get.static_data()
 
-    
-    
     shps = statics.shapes
+    bounds = Bounds(shps)
+    
     dynamic_hm = ax.imshow(np.zeros((100, 100)),
                            zorder=1,
-                           alpha=0.25,
+                        #    alpha=0.25,
                            extent=[
                                 shps['shape_pt_lon'].min(),
                                 shps['shape_pt_lon'].max(),
@@ -34,9 +35,9 @@ def main():
                                 shps['shape_pt_lat'].max(),
                             ],
                             interpolation="spline16",
-                           cmap="Blues",
-                           vmin=0,
-                           vmax=1)
+                            cmap="Blues",
+                            vmin=0,
+                            vmax=5)
     
     
     instructions = parse_shape_instructions(statics)
@@ -54,11 +55,14 @@ def main():
     
     
     def update(frame):
-        new_matrix = np.random.rand(100, 100) 
-        dynamic_hm.set_data(new_matrix)
+        new_matrix = np.zeros((100,100))        
         positions = Get.dynamic_data()
-        print(positions)
-        print(sum(map(lambda a: 1, positions)))
+        positions = interpolate_coords(positions, bounds)
+        # print(list(positions))
+        for (x, y) in positions:
+            new_matrix[int(x)][int(y)] += 1
+
+        dynamic_hm.set_data(new_matrix)
         return dynamic_hm,
     
 
@@ -111,7 +115,34 @@ class DB:
         
     def save_changes(changes):
         pass
-    
+
+
+class Bounds:
+    def __init__(self, shps) -> None:
+        self.minx = shps['shape_pt_lon'].min()
+        self.maxx = shps['shape_pt_lon'].max()
+        self.miny = shps['shape_pt_lat'].min()
+        self.maxy = shps['shape_pt_lat'].max()
+        
+    def __str__(self) -> str:
+        return f"""
+minx={self.minx}
+maxx={self.maxx}
+miny={self.miny}
+maxy={self.maxy}
+        """
+        
+def interpolate_coords(coords, bounds: Bounds):
+    b = bounds
+    newcoords = []
+    for x, y in coords:
+        print(len( np.linspace(0, 100, 100, endpoint=False)))
+        nx = np.interp(x, np.linspace(0, 100, 100, endpoint=False), np.linspace(b.minx, b.maxx, 100))
+        ny = np.interp(y, np.linspace(0, 100, 100, endpoint=False), np.linspace(b.miny, b.maxy, 100))
+        print(nx, ny)
+        newcoords.append((nx, ny))
+    return newcoords
+ 
 def parse_shape_instructions(f: gk.Feed):
     instructions = []
     for name, group in f.shapes.sort_values('shape_pt_sequence').groupby('shape_id'):
