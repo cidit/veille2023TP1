@@ -14,8 +14,8 @@ import numpy as np
 import sqlite3
 import dotenv
 
-MATRIX_WIDTH = 150
-MATRIX_HEIGHT = 150
+MATRIX_WIDTH = 100
+MATRIX_HEIGHT = 100
 
 
 def main():
@@ -28,20 +28,15 @@ def main():
     shps = statics.shapes
     bounds = Bounds(shps)
     
-    cmap = plt.get_cmap("Reds")
-    cmap.set_under("00000000")
-    norm = mpl.colors.Normalize(vmin=1, vmax=5, clip=False)
+    # the following color map bit is taken from https://stackoverflow.com/questions/37327308/add-alpha-to-an-existing-colormap
+    cmap = plt.get_cmap("Blues")
+    my_cmap = cmap(np.arange(cmap.N))
+    my_cmap[:,-1] = np.linspace(0, 1, cmap.N)
+    my_cmap = mpl.colors.ListedColormap(my_cmap)
     
-    cdict = {
-        "blue": ((0,1,1), (1, 1, 1)),
-        "red": ((0,0,0), (1, 0, 0)),
-        "green": ((0,0,0), (1, 0, 0)),
-        "alpha": ((0, 0,0), (1,1,1)),
-    }
-    plt.register_cmap(cmap=mpl.colors.LinearSegmentedColormap("MyCMAP", cdict))
     dynamic_hm = ax.imshow(np.zeros((MATRIX_WIDTH, MATRIX_HEIGHT)),
                            zorder=1,
-                           alpha=0.75,
+                           alpha=1,
                            extent=[
                                 shps['shape_pt_lon'].min(),
                                 shps['shape_pt_lon'].max(),
@@ -49,7 +44,10 @@ def main():
                                 shps['shape_pt_lat'].max(),
                             ],
                             interpolation="spline16",
-                            cmap="MyCMAP")
+                            # cmap="MyCMAP"
+                            cmap=my_cmap,
+                            vmin=0, vmax=5
+                            )
     
     
     instructions = parse_shape_instructions(statics)
@@ -58,7 +56,8 @@ def main():
     path = mp.Path(verts, codes)
     patch = PathPatch(path,
                       facecolor="none",
-                      lw=1)
+                      zorder=0,
+                      lw=0.5)
     patchmap = ax.add_patch(patch)
     x, y = zip(*path.vertices)
     line, = ax.plot(x, y, 'g-', marker=None)
@@ -67,15 +66,19 @@ def main():
     
     
     def update(frame):
-        new_matrix = np.zeros((MATRIX_WIDTH,MATRIX_HEIGHT))        
+        print("updating...")
+        new_matrix = np.zeros((MATRIX_WIDTH,MATRIX_HEIGHT)) 
+        print("\tfetching and parsing data")       
         positions = Get.dynamic_data()
+        print("\ttranslating coordinates")
         positions = translate_coords(positions, bounds)
-        # print(list(positions))
+        print(f"\tcumulating {len(positions)} coordinates")
         for (x, y) in positions:
             new_matrix[int(x)][int(y)] += 1
-        # new_matrix = np.flip(new_matrix, 1)
+        print("\trotating dataset")
         new_matrix = np.rot90(new_matrix, 1)
         dynamic_hm.set_data(new_matrix)
+        print("update finished")
         return dynamic_hm,
     
 
@@ -111,14 +114,18 @@ class Get:
         
     def dynamic_data():
         dyndat_url = "https://api.stm.info/pub/od/gtfs-rt/ic/v2/vehiclePositions"
+        print("fetching")
         response = requests.get(dyndat_url, headers={
             "accept": "application/x-protobuf",
             "apiKey": os.getenv("API_KEY")
         })
         msg = gtfs_realtime_pb2.FeedMessage()
+        print("parsing feed message")
         msg.ParseFromString(response.content)
+        print("mapping contents")
         pos = map(lambda e: e.vehicle.position, msg.entity)
         pos = map(lambda p: (p.longitude, p.latitude), pos)
+        print("done")
         return pos
         
 
@@ -146,8 +153,7 @@ maxy={self.maxy}
         """
         
 def translate_coords(coords, bounds: Bounds):
-    b = bounds
-        
+    b = bounds 
     newcoords = []
     for x, y in coords:
         nx = np.interp(x, 
@@ -158,7 +164,6 @@ def translate_coords(coords, bounds: Bounds):
                        np.linspace(b.miny, b.maxy, MATRIX_HEIGHT),
                        np.linspace(0, MATRIX_HEIGHT, MATRIX_HEIGHT, endpoint=False), 
                        )
-        print(nx, ny)
         newcoords.append((nx, ny))
     return newcoords
  
