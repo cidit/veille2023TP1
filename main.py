@@ -5,6 +5,7 @@ import os
 import requests
 import sys
 import gtfs_kit as gk
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.path as mp
 from matplotlib.patches import PathPatch
@@ -27,6 +28,17 @@ def main():
     shps = statics.shapes
     bounds = Bounds(shps)
     
+    cmap = plt.get_cmap("Reds")
+    cmap.set_under("00000000")
+    norm = mpl.colors.Normalize(vmin=1, vmax=5, clip=False)
+    
+    cdict = {
+        "blue": ((0,1,1), (1, 1, 1)),
+        "red": ((0,0,0), (1, 0, 0)),
+        "green": ((0,0,0), (1, 0, 0)),
+        "alpha": ((0, 0,0), (1,1,1)),
+    }
+    plt.register_cmap(cmap=mpl.colors.LinearSegmentedColormap("MyCMAP", cdict))
     dynamic_hm = ax.imshow(np.zeros((MATRIX_WIDTH, MATRIX_HEIGHT)),
                            zorder=1,
                            alpha=0.75,
@@ -37,9 +49,7 @@ def main():
                                 shps['shape_pt_lat'].max(),
                             ],
                             interpolation="spline16",
-                            cmap="Blues",
-                            vmin=0,
-                            vmax=5)
+                            cmap="MyCMAP")
     
     
     instructions = parse_shape_instructions(statics)
