@@ -13,6 +13,8 @@ import numpy as np
 import sqlite3
 import dotenv
 
+MATRIX_WIDTH = 150
+MATRIX_HEIGHT = 150
 
 
 def main():
@@ -25,9 +27,9 @@ def main():
     shps = statics.shapes
     bounds = Bounds(shps)
     
-    dynamic_hm = ax.imshow(np.zeros((100, 100)),
+    dynamic_hm = ax.imshow(np.zeros((MATRIX_WIDTH, MATRIX_HEIGHT)),
                            zorder=1,
-                        #    alpha=0.25,
+                           alpha=0.75,
                            extent=[
                                 shps['shape_pt_lon'].min(),
                                 shps['shape_pt_lon'].max(),
@@ -55,13 +57,13 @@ def main():
     
     
     def update(frame):
-        new_matrix = np.zeros((100,100))        
+        new_matrix = np.zeros((MATRIX_WIDTH,MATRIX_HEIGHT))        
         positions = Get.dynamic_data()
-        positions = interpolate_coords(positions, bounds)
+        positions = translate_coords(positions, bounds)
         # print(list(positions))
         for (x, y) in positions:
             new_matrix[int(x)][int(y)] += 1
-
+        new_matrix = np.flip(new_matrix, 1)
         dynamic_hm.set_data(new_matrix)
         return dynamic_hm,
     
@@ -132,13 +134,19 @@ miny={self.miny}
 maxy={self.maxy}
         """
         
-def interpolate_coords(coords, bounds: Bounds):
+def translate_coords(coords, bounds: Bounds):
     b = bounds
+        
     newcoords = []
     for x, y in coords:
-        print(len( np.linspace(0, 100, 100, endpoint=False)))
-        nx = np.interp(x, np.linspace(0, 100, 100, endpoint=False), np.linspace(b.minx, b.maxx, 100))
-        ny = np.interp(y, np.linspace(0, 100, 100, endpoint=False), np.linspace(b.miny, b.maxy, 100))
+        nx = np.interp(x, 
+                       np.linspace(b.minx, b.maxx, MATRIX_WIDTH),
+                       np.linspace(0, MATRIX_WIDTH, MATRIX_WIDTH, endpoint=False), 
+                       )
+        ny = np.interp(y, 
+                       np.linspace(b.miny, b.maxy, MATRIX_HEIGHT),
+                       np.linspace(0, MATRIX_HEIGHT, MATRIX_HEIGHT, endpoint=False), 
+                       )
         print(nx, ny)
         newcoords.append((nx, ny))
     return newcoords
