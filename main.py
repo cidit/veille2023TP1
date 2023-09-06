@@ -31,7 +31,9 @@ def main():
     # the following color map bit is taken from https://stackoverflow.com/questions/37327308/add-alpha-to-an-existing-colormap
     cmap = plt.get_cmap("Blues")
     my_cmap = cmap(np.arange(cmap.N))
-    my_cmap[:,-1] = np.linspace(0, 1, cmap.N)
+    my_cmap[:,-1] = np.ones((cmap.N))
+    my_cmap[:,-1][0] = 0
+    print(np.shape(my_cmap))
     my_cmap = mpl.colors.ListedColormap(my_cmap)
     
     dynamic_hm = ax.imshow(np.zeros((MATRIX_WIDTH, MATRIX_HEIGHT)),
