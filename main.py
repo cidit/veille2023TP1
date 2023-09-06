@@ -1,4 +1,7 @@
 import pathlib
+import gtfs_realtime_pb2
+import os
+import requests
 import sys
 import gtfs_kit as gk
 import matplotlib.pyplot as plt
@@ -7,10 +10,12 @@ from matplotlib.patches import PathPatch
 from matplotlib.animation import FuncAnimation
 import numpy as np
 import sqlite3
+import dotenv
 
 
 def main():
     print("Hello, World!")
+    dotenv.load_dotenv()
 
     statics = Get.static_data()
     
@@ -18,15 +23,16 @@ def main():
     
     fig, ax = plt.subplots()
     # static_hm = ax.imshow(matrix, cmap="Wistia", alpha=0.25)
-    dynamic_hm = ax.imshow(np.zeros((100, 100)),
+    dynamic_hm = ax.imshow(np.zeros((1000, 1000)),
                            zorder=1,
                            alpha=0.25,
-                            extent=[
+                           extent=[
                                 shps['shape_pt_lon'].min(),
                                 shps['shape_pt_lon'].max(),
                                 shps['shape_pt_lat'].min(),
                                 shps['shape_pt_lat'].max(),
                             ],
+                            interpolation="spline16",
                            cmap="Blues",
                            vmin=0,
                            vmax=1)
@@ -47,7 +53,7 @@ def main():
     
     
     def update(frame):
-        new_matrix = np.random.rand(100, 100) 
+        new_matrix = np.random.rand(1000, 1000) 
         dynamic_hm.set_data(new_matrix)
         return dynamic_hm,
     
@@ -57,7 +63,7 @@ def main():
                         frames=None,
                         blit=True, 
                         cache_frame_data=False)
-    plt.gca().invert_yaxis()
+
     plt.show()
 
 class Get:
@@ -82,6 +88,18 @@ class Get:
         return feed
         
     def dynamic_data():
+        dyndat_url = "https://api.stm.info/pub/od/gtfs-rt/ic/v2"
+        payload = requests.get(dyndat_url, headers={
+            "accept": "application/x-protobuf",
+            "apiKey": os.getenv("API_KEY")
+        })
+        
+
+class DB:
+    def __init__(self, conn):
+        self.conn = conn
+        
+    def save_changes(changes):
         pass
     
 def parse_shape_instructions(f: gk.Feed):
