@@ -17,14 +17,14 @@ import dotenv
 def main():
     print("Hello, World!")
     dotenv.load_dotenv()
-
-    statics = Get.static_data()
-    
-    shps = statics.shapes
     
     fig, ax = plt.subplots()
-    # static_hm = ax.imshow(matrix, cmap="Wistia", alpha=0.25)
-    dynamic_hm = ax.imshow(np.zeros((1000, 1000)),
+    statics = Get.static_data()
+
+    
+    
+    shps = statics.shapes
+    dynamic_hm = ax.imshow(np.zeros((100, 100)),
                            zorder=1,
                            alpha=0.25,
                            extent=[
@@ -54,12 +54,11 @@ def main():
     
     
     def update(frame):
-        new_matrix = np.random.rand(1000, 1000) 
+        new_matrix = np.random.rand(100, 100) 
         dynamic_hm.set_data(new_matrix)
         positions = Get.dynamic_data()
         print(positions)
-        for p in positions:
-            print(p)
+        print(sum(map(lambda a: 1, positions)))
         return dynamic_hm,
     
 
@@ -67,6 +66,7 @@ def main():
     ani = FuncAnimation(fig, update,  
                         frames=None,
                         blit=True, 
+                        interval=10_000, # once every 10s
                         cache_frame_data=False)
 
     plt.show()
