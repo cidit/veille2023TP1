@@ -63,7 +63,8 @@ def main():
         # print(list(positions))
         for (x, y) in positions:
             new_matrix[int(x)][int(y)] += 1
-        new_matrix = np.flip(new_matrix, 1)
+        # new_matrix = np.flip(new_matrix, 1)
+        new_matrix = np.rot90(new_matrix, 1)
         dynamic_hm.set_data(new_matrix)
         return dynamic_hm,
     
