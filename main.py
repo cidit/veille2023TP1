@@ -177,10 +177,11 @@ class DB:
     def save(self, vpos: np.ndarray):
         self.conn.cursor().execute(
             f"""
-            INSERT INTO {self.table_name} values (?); 
+            INSERT INTO {self.table_name} (data) values (?); 
             """,
             (vpos, ))
-    
+        self.conn.commit()
+        
     def read_from_oldest(self):
         """returns a generator that will get the data in the db sequentially, from oldest to newest
         """
