@@ -90,7 +90,6 @@ def main():
         print("update finished")
         dynamic_hm.set_data(new_matrix)
         return dynamic_hm,
-    
 
     # reference to `ani` must be kept alive because it needs to maintain an internal timer that's gonna get garbage collected otherwise.
     ani = FuncAnimation(fig, update,  
@@ -123,7 +122,6 @@ def sqlite_numpy_bridge():
 
     # Converts TEXT to np.array when selecting
     sqlite3.register_converter("array", convert_array)
-
 
 class Get:
     def static_data():
@@ -158,7 +156,6 @@ class Get:
         except Exception as err:
             return Err(err)
         
-
 class DB:
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
@@ -196,8 +193,6 @@ class DB:
         # we map to the first element of the tupple for each entry of the returned data
         generator = (entry[0] for entry in cur)
         return generator
-
-
 
 class Bounds:
     def __init__(self, shps) -> None:
