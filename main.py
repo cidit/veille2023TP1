@@ -22,7 +22,9 @@ MATRIX_HEIGHT = 100
 def main():
     print("Hello, World!")
     dotenv.load_dotenv()
+    sqlite_numpy_bridge()
     
+    db = DB(sqlite3.connect(os.getenv("DB_PATH")))
     fig, ax = plt.subplots()
     statics = Get.static_data()
 
@@ -62,10 +64,9 @@ def main():
     x, y = zip(*path.vertices)
     line, = ax.plot(x, y, 'g-', marker=None)
     line.remove()
-
     
     
-    def update(frame):
+    def update(_frame):
         print("updating...")
         new_matrix = np.zeros((MATRIX_WIDTH,MATRIX_HEIGHT)) 
         print("\tfetching and parsing data")
@@ -84,8 +85,10 @@ def main():
             new_matrix[int(x)][int(y)] += 1
         print("\trotating dataset")
         new_matrix = np.rot90(new_matrix, 1)
-        dynamic_hm.set_data(new_matrix)
+        print("\tsaving data")
+        db.save(new_matrix)
         print("update finished")
+        dynamic_hm.set_data(new_matrix)
         return dynamic_hm,
     
 
@@ -97,14 +100,35 @@ def main():
                         cache_frame_data=False)
 
     plt.show()
+    
+def sqlite_numpy_bridge():
+    # this entire function is lifted from https://stackoverflow.com/questions/18621513/python-insert-numpy-array-into-sqlite3-database
+    import io
+    
+    def adapt_array(arr):
+        """
+        http://stackoverflow.com/a/31312102/190597 (SoulNibbler)
+        """
+        out = io.BytesIO()
+        np.save(out, arr)
+        out.seek(0)
+        return sqlite3.Binary(out.read())
+    
+    def convert_array(text):
+        out = io.BytesIO(text)
+        out.seek(0)
+        return np.load(out)
+    # Converts np.array to TEXT when inserting
+    sqlite3.register_adapter(np.ndarray, adapt_array)
+
+    # Converts TEXT to np.array when selecting
+    sqlite3.register_converter("array", convert_array)
+
 
 class Get:
     def static_data():
         """gets the static GTFS data and prints any validation warning.
         crashes the program in the event of any errors reported in the validation.
-
-        Returns:
-            _type_: _description_
         """
         p = pathlib.Path("./data/gtfs.zip")
         print(f"reading GTFS feed at {p}")
@@ -136,11 +160,42 @@ class Get:
         
 
 class DB:
-    def __init__(self, conn):
+    def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
+        self.table_name = "vehicle_pos_snapshots"
+        execute_string = f"""
+            CREATE TABLE IF NOT EXISTS {self.table_name} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                data ARRAY NOT NULL,
+                time TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+            );
+            """
+        if "--reset_db" in sys.argv:
+            execute_string = f"DROP TABLE IF EXISTS {self.table_name};".join(execute_string)
+        self.conn.cursor().execute(execute_string)
         
-    def save_changes(changes):
-        pass
+    def save(self, vpos: np.ndarray):
+        self.conn.cursor().execute(
+            f"""
+            INSERT INTO {self.table_name} values (?); 
+            """,
+            (vpos, ))
+    
+    def read_from_oldest(self):
+        """returns a generator that will get the data in the db sequentially, from oldest to newest
+        """
+        cur = self.conn.cursor()
+        cur.execute(
+            f"""
+            SELECT data 
+            FROM {self.table_name} 
+            ORDER BY time ASC;
+            """
+        ) 
+        # we map to the first element of the tupple for each entry of the returned data
+        generator = (entry[0] for entry in cur)
+        return generator
+
 
 
 class Bounds:
@@ -182,8 +237,6 @@ def parse_shape_instructions(f: gk.Feed):
         for coord in coords:
             instructions.append((mp.Path.LINETO, coord))
     return instructions
-    
-    
 
 if __name__ == "__main__":
     main()
