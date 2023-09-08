@@ -22,12 +22,15 @@ numpy==1.25.2
 packaging==23.1
 pandas==2.1.0
 Pillow==10.0.0
+protobuf==4.24.2
 pycountry==22.3.5
 pyparsing==3.0.9
 pyproj==3.6.0
 python-dateutil==2.8.2
+python-dotenv==1.0.0
 pytz==2023.3
 requests==2.31.0
+result==0.13.1
 Rtree==1.0.1
 shapely==2.0.1
 six==1.16.0

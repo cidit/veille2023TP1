@@ -13,6 +13,7 @@ from matplotlib.animation import FuncAnimation
 import numpy as np
 import sqlite3
 import dotenv
+from result import Ok, Err, Result
 
 MATRIX_WIDTH = 100
 MATRIX_HEIGHT = 100
@@ -67,8 +68,15 @@ def main():
     def update(frame):
         print("updating...")
         new_matrix = np.zeros((MATRIX_WIDTH,MATRIX_HEIGHT)) 
-        print("\tfetching and parsing data")       
+        print("\tfetching and parsing data")
         positions = Get.dynamic_data()
+        match positions:
+            case Ok(v):
+                positions = v
+            case Err(e):
+                print("An error happened while fetching the dynamic date. returning early of the update function...")
+                print(e)
+                return dynamic_hm
         print("\ttranslating coordinates")
         positions = translate_coords(positions, bounds)
         print(f"\tcumulating {len(positions)} coordinates")
@@ -113,19 +121,18 @@ class Get:
         
     def dynamic_data():
         dyndat_url = "https://api.stm.info/pub/od/gtfs-rt/ic/v2/vehiclePositions"
-        print("fetching")
-        response = requests.get(dyndat_url, headers={
-            "accept": "application/x-protobuf",
-            "apiKey": os.getenv("API_KEY")
-        })
-        msg = gtfs_realtime_pb2.FeedMessage()
-        print("parsing feed message")
-        msg.ParseFromString(response.content)
-        print("mapping contents")
-        pos = map(lambda e: e.vehicle.position, msg.entity)
-        pos = map(lambda p: (p.longitude, p.latitude), pos)
-        print("done")
-        return pos
+        try:
+            response = requests.get(dyndat_url, headers={
+                "accept": "application/x-protobuf",
+                "apiKey": os.getenv("API_KEY")
+            })
+            msg = gtfs_realtime_pb2.FeedMessage()
+            msg.ParseFromString(response.content)
+            pos = map(lambda e: e.vehicle.position, msg.entity)
+            pos = map(lambda p: (p.longitude, p.latitude), pos)
+            return Ok(pos)
+        except Exception as err:
+            return Err(err)
         
 
 class DB:
