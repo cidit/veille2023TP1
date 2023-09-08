@@ -14,6 +14,7 @@ import numpy as np
 import sqlite3
 import dotenv
 from result import Ok, Err, Result
+import queue
 
 MATRIX_WIDTH = 100
 MATRIX_HEIGHT = 100
@@ -23,6 +24,8 @@ def main():
     print("Hello, World!")
     dotenv.load_dotenv()
     sqlite_numpy_bridge()
+    
+    position_queue = queue.Queue(30)
     
     db = DB(sqlite3.connect(os.getenv("DB_PATH")))
     fig, ax = plt.subplots()
