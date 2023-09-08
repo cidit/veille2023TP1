@@ -46,7 +46,7 @@ def main():
                                 shps['shape_pt_lat'].min(),
                                 shps['shape_pt_lat'].max(),
                             ],
-                            interpolation="spline16",
+                            # interpolation="spline16",
                             cmap=my_cmap,
                             vmin=0, vmax=5
                             )
