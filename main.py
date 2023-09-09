@@ -1,4 +1,5 @@
 import pathlib
+import pandas
 from dataclasses import dataclass
 import gtfs_realtime_pb2
 import os
@@ -29,7 +30,7 @@ def main():
     
     db = DB(sqlite3.connect(os.getenv("DB_PATH")))
     fig, ax = plt.subplots()
-    statics = Get.static_data()
+    statics = Get.static_GTFS()
 
     shps = statics.shapes
     bounds = Bounds(shps)
@@ -41,15 +42,15 @@ def main():
     my_cmap = mpl.colors.ListedColormap(my_cmap)
     
     dynamic_hm = ax.imshow(np.zeros((MATRIX_WIDTH, MATRIX_HEIGHT)),
-                           zorder=1,
-                           alpha=1,
-                           extent=[
+                            zorder=1,
+                            alpha=1,
+                            extent=[
                                 shps['shape_pt_lon'].min(),
                                 shps['shape_pt_lon'].max(),
                                 shps['shape_pt_lat'].min(),
                                 shps['shape_pt_lat'].max(),
                             ],
-                            # interpolation="spline16",
+                            interpolation="spline16",
                             cmap=my_cmap,
                             vmin=0, vmax=5
                             )
@@ -73,16 +74,18 @@ def main():
         print("updating...")
         new_matrix = np.zeros((MATRIX_WIDTH,MATRIX_HEIGHT)) 
         print("\tfetching and parsing data")
-        positions = Get.dynamic_data()
-        match positions:
+        msg = Get.realtime_feed()
+        match msg:
             case Ok(v):
-                positions = v
+                msg = v
             case Err(e):
                 print("An error happened while fetching the dynamic date. returning early of the update function...")
                 print(e)
                 return dynamic_hm
+        pos = map(lambda e: e.vehicle.position, msg.entity)
+        pos = map(lambda p: (p.longitude, p.latitude), pos)
         print("\ttranslating coordinates")
-        positions = translate_coords(positions, bounds)
+        positions = translate_coords(pos, bounds)
         print(f"\tcumulating {len(positions)} coordinates")
         for (x, y) in positions:
             new_matrix[int(x)][int(y)] += 1
@@ -127,7 +130,7 @@ def sqlite_numpy_bridge():
     sqlite3.register_converter("array", convert_array)
 
 class Get:
-    def static_data():
+    def static_GTFS():
         """gets the static GTFS data and prints any validation warning.
         crashes the program in the event of any errors reported in the validation.
         """
@@ -144,7 +147,7 @@ class Get:
          
         return feed
         
-    def dynamic_data():
+    def realtime_feed():
         dyndat_url = "https://api.stm.info/pub/od/gtfs-rt/ic/v2/vehiclePositions"
         try:
             response = requests.get(dyndat_url, headers={
@@ -153,9 +156,8 @@ class Get:
             })
             msg = gtfs_realtime_pb2.FeedMessage()
             msg.ParseFromString(response.content)
-            pos = map(lambda e: e.vehicle.position, msg.entity)
-            pos = map(lambda p: (p.longitude, p.latitude), pos)
-            return Ok(pos)
+            
+            return Ok(msg)
         except Exception as err:
             return Err(err)
         
@@ -163,16 +165,18 @@ class DB:
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
         self.table_name = "vehicle_pos_snapshots"
-        execute_string = f"""
+        cur = self.conn.cursor()
+        if "--reset_db" in sys.argv:
+            cur.execute(f"DROP TABLE IF EXISTS {self.table_name};")
+        cur.execute(
+            f"""
             CREATE TABLE IF NOT EXISTS {self.table_name} (
                 id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                 data ARRAY NOT NULL,
                 time TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
             );
             """
-        if "--reset_db" in sys.argv:
-            execute_string = f"DROP TABLE IF EXISTS {self.table_name};".join(execute_string)
-        self.conn.cursor().execute(execute_string)
+        )
         
     def save(self, vpos: np.ndarray):
         self.conn.cursor().execute(
@@ -226,6 +230,19 @@ def translate_coords(coords, bounds: Bounds):
                        )
         newcoords.append((nx, ny))
     return newcoords
+
+def interpret(data: queue.Queue[pandas.DataFrame], bounds: Bounds):
+    """
+    takes a queue of the cached data frames.
+    each dataframe contains 3 fields:
+    - vehicle id
+    - longitude
+    - latitude
+    
+    the output of this functions is a 2D numpy matrix of ints that can be fed directly to the heatmap.
+    """
+    
+    pass
  
 def parse_shape_instructions(f: gk.Feed):
     instructions = []
