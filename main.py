@@ -82,6 +82,7 @@ def main():
                 print("An error happened while fetching the dynamic date. returning early of the update function...")
                 print(e)
                 return dynamic_hm
+        print("\tcleaning data")
         pos = map(lambda e: e.vehicle.position, msg.entity)
         pos = map(lambda p: (p.longitude, p.latitude), pos)
         print("\ttranslating coordinates")
@@ -231,17 +232,40 @@ def translate_coords(coords, bounds: Bounds):
         newcoords.append((nx, ny))
     return newcoords
 
-def interpret(data: queue.Queue[pandas.DataFrame], bounds: Bounds):
+def clean_data(raw: gtfs_realtime_pb2.FeedMessage):
+    """cleans the feed message, keeping and grouping only th einformation we need
+
+    Args:
+        raw (gtfs_realtime_pb2.FeedMessage)
+
+    Returns:
+        a generator of tuples
     """
+    return (
+        (e.vehicle.vehicle.id, 
+         e.vehicle.position.longitude, 
+         e.vehicle.position.latitude)
+        for e 
+        in raw.entity
+    )
+
+def interpret(data: queue.Queue[pandas.DataFrame], bounds: Bounds, out_shape):
+    """
+    METRIC OF QUALITY
     takes a queue of the cached data frames.
-    each dataframe contains 3 fields:
+    each dataframe contains 3 fields that we are interested in:
     - vehicle id
     - longitude
     - latitude
     
     the output of this functions is a 2D numpy matrix of ints that can be fed directly to the heatmap.
     """
-    
+    b = bounds
+    out = [ [ set() for i in range(out_shape.width) ] for j in range(out_shape.height) ]
+    for df in data:
+        for id, lon, lat in zip(df["id"], df["lon"], df["lat"]):
+            out[lon][lat].add(id)
+    out = map(lambda l: map(lambda s: s.count, l), out)
     pass
  
 def parse_shape_instructions(f: gk.Feed):
