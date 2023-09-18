@@ -15,7 +15,7 @@ import numpy as np
 import sqlite3
 import dotenv
 from result import Ok, Err, Result
-import queue
+from collections import deque
 
 MATRIX_WIDTH = 100
 MATRIX_HEIGHT = 100
@@ -26,8 +26,8 @@ def main():
     dotenv.load_dotenv()
     sqlite_numpy_bridge()
     
-    position_queue = queue.Queue(30)
-    
+    position_queue = deque(maxlen=30)
+        
     db = DB(sqlite3.connect(os.getenv("DB_PATH")))
     fig, ax = plt.subplots()
     statics = Get.static_GTFS()
@@ -72,7 +72,6 @@ def main():
     
     def update(_frame):
         print("updating...")
-        new_matrix = np.zeros((MATRIX_WIDTH,MATRIX_HEIGHT)) 
         print("\tfetching and parsing data")
         msg = Get.realtime_feed()
         match msg:
@@ -83,17 +82,16 @@ def main():
                 print(e)
                 return dynamic_hm
         print("\tcleaning data")
-        pos = map(lambda e: e.vehicle.position, msg.entity)
-        pos = map(lambda p: (p.longitude, p.latitude), pos)
+        pos = clean_data(msg)
         print("\ttranslating coordinates")
-        positions = translate_coords(pos, bounds)
-        print(f"\tcumulating {len(positions)} coordinates")
-        for (x, y) in positions:
-            new_matrix[int(x)][int(y)] += 1
+        if position_queue.count() == position_queue.maxlen:
+            position_queue.pop()
+        position_queue.append(pos)
+        interpreted = interpret(position_queue, bounds, (MATRIX_WIDTH, MATRIX_HEIGHT))
         print("\trotating dataset")
-        new_matrix = np.rot90(new_matrix, 1)
+        new_matrix = np.rot90(interpreted, 1)
         print("\tsaving data")
-        db.save(new_matrix)
+        # db.save(new_matrix) gonna have to start saving the list of coords instead
         print("update finished")
         dynamic_hm.set_data(new_matrix)
         return dynamic_hm,
@@ -249,7 +247,7 @@ def clean_data(raw: gtfs_realtime_pb2.FeedMessage):
         in raw.entity
     )
 
-def interpret(data: queue.Queue[pandas.DataFrame], bounds: Bounds, out_shape):
+def interpret(data: deque[tuple[int, float, float]], bounds: Bounds, out_shape):
     """
     METRIC OF QUALITY
     takes a queue of the cached data frames.
@@ -258,15 +256,23 @@ def interpret(data: queue.Queue[pandas.DataFrame], bounds: Bounds, out_shape):
     - longitude
     - latitude
     
-    the output of this functions is a 2D numpy matrix of ints that can be fed directly to the heatmap.
+    the output of this functions is a 2D numpy array of ints that can be fed directly to the heatmap.
     """
     b = bounds
-    out = [ [ set() for i in range(out_shape.width) ] for j in range(out_shape.height) ]
-    for df in data:
-        for id, lon, lat in zip(df["id"], df["lon"], df["lat"]):
-            out[lon][lat].add(id)
-    out = map(lambda l: map(lambda s: s.count, l), out)
-    pass
+    (width, height) = out_shape
+    out = [ [ set() for i in range(height) ] for j in range(width) ]
+    for id, lon, lat in data:
+        nx = np.interp(lon, 
+                       np.linspace(b.minx, b.maxx, MATRIX_WIDTH),
+                       np.linspace(0, MATRIX_WIDTH, MATRIX_WIDTH, endpoint=False), 
+                       )
+        ny = np.interp(lat, 
+                       np.linspace(b.miny, b.maxy, MATRIX_HEIGHT),
+                       np.linspace(0, MATRIX_HEIGHT, MATRIX_HEIGHT, endpoint=False), 
+                       )
+        out[nx][ny].add(id)
+    out = map(lambda l: map(lambda s: s.count(), l), out)
+    return np.array(out)
  
 def parse_shape_instructions(f: gk.Feed):
     instructions = []
