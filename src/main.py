@@ -1,10 +1,3 @@
-import pathlib
-import pandas
-from dataclasses import dataclass
-import gtfs_realtime_pb2
-import os
-import requests
-import sys
 import gtfs_kit as gk
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -12,11 +5,16 @@ import matplotlib.path as mp
 from matplotlib.patches import PathPatch
 from matplotlib.animation import FuncAnimation
 import numpy as np
-import sqlite3
 import dotenv
 from result import Ok, Err, Result
-import queue
 from collections import deque
+
+from src.gtfs_realtime_pb2 import FeedMessage
+from src.config import Config
+from src.db import sqlite_numpy_bridge, DB
+from src.model import Bounds
+from src.stm_api import Get
+
 
 MATRIX_WIDTH = 100
 MATRIX_HEIGHT = 100
@@ -27,11 +25,12 @@ def main():
     dotenv.load_dotenv()
     sqlite_numpy_bridge()
     
+    config = Config()
     position_queue = deque(maxlen=30)
         
-    db = DB(sqlite3.connect(os.getenv("DB_PATH")))
+    db = DB(config.db_path, reset_db=config.reset_db)
     fig, ax = plt.subplots()
-    statics = Get.static_GTFS()
+    statics = Get.static_GTFS(config.validate)
 
     shps = statics.shapes
     bounds = Bounds(shps)
@@ -105,122 +104,7 @@ def main():
                         cache_frame_data=False)
 
     plt.show()
-    
-def sqlite_numpy_bridge():
-    # this entire function is lifted from https://stackoverflow.com/questions/18621513/python-insert-numpy-array-into-sqlite3-database
-    import io
-    
-    def adapt_array(arr):
-        """
-        http://stackoverflow.com/a/31312102/190597 (SoulNibbler)
-        """
-        out = io.BytesIO()
-        np.save(out, arr)
-        out.seek(0)
-        return sqlite3.Binary(out.read())
-    
-    def convert_array(text):
-        out = io.BytesIO(text)
-        out.seek(0)
-        return np.load(out)
-    # Converts np.array to TEXT when inserting
-    sqlite3.register_adapter(np.ndarray, adapt_array)
 
-    # Converts TEXT to np.array when selecting
-    sqlite3.register_converter("array", convert_array)
-
-class Get:
-    def static_GTFS():
-        """gets the static GTFS data and prints any validation warning.
-        crashes the program in the event of any errors reported in the validation.
-        """
-        p = pathlib.Path("./data/gtfs.zip")
-        print(f"reading GTFS feed at {p}")
-        feed = gk.read_feed(p, dist_units='km')
-        if "--validate" in sys.argv:
-            print("validating feed")
-            v = feed.validate(as_df=True, include_warnings=True)
-            print(f"GTFS Warnings and Errors:\n{v}")
-            any_err = len(v.loc[v['type'] == 'error']) > 0
-            if any_err:
-                sys.exit(1)
-         
-        return feed
-        
-    def realtime_feed():
-        dyndat_url = "https://api.stm.info/pub/od/gtfs-rt/ic/v2/vehiclePositions"
-        try:
-            response = requests.get(dyndat_url, headers={
-                "accept": "application/x-protobuf",
-                "apiKey": os.getenv("API_KEY")
-            })
-            msg = gtfs_realtime_pb2.FeedMessage()
-            msg.ParseFromString(response.content)
-            
-            return Ok(msg)
-        except Exception as err:
-            return Err(err)
-        
-class DB:
-    def __init__(self, conn: sqlite3.Connection):
-        self.conn = conn
-        self.table_name = "vehicle_pos_snapshots"
-        cur = self.conn.cursor()
-        if "--reset_db" in sys.argv:
-            cur.execute(f"DROP TABLE IF EXISTS {self.table_name};")
-        cur.execute(
-            f"""
-            CREATE TABLE IF NOT EXISTS {self.table_name} (
-                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-                data ARRAY NOT NULL,
-                time TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
-            );
-            """
-        )
-        
-    def save(self, vpos: np.ndarray):
-        self.conn.cursor().execute(
-            f"""
-            INSERT INTO {self.table_name} (data) values (?); 
-            """,
-            (vpos, ))
-        self.conn.commit()
-        
-    def read_from_oldest(self):
-        """returns a generator that will get the data in the db sequentially, from oldest to newest
-        """
-        cur = self.conn.cursor()
-        cur.execute(
-            f"""
-            SELECT data 
-            FROM {self.table_name} 
-            ORDER BY time ASC;
-            """
-        ) 
-        # we map to the first element of the tupple for each entry of the returned data
-        generator = (entry[0] for entry in cur)
-        return generator
-
-class Bounds:
-    def __init__(self, shps) -> None:
-        self.minx = shps['shape_pt_lon'].min()
-        self.maxx = shps['shape_pt_lon'].max()
-        self.miny = shps['shape_pt_lat'].min()
-        self.maxy = shps['shape_pt_lat'].max()
-        
-    def __str__(self) -> str:
-        return f"""
-minx={self.minx}
-maxx={self.maxx}
-miny={self.miny}
-maxy={self.maxy}
-        """
-        
-@dataclass
-class BusData:
-    id: int
-    lon: float
-    lat: float
 
 def translate_coords(coords, bounds: Bounds):
     b = bounds 
@@ -237,7 +121,7 @@ def translate_coords(coords, bounds: Bounds):
         newcoords.append((nx, ny))
     return newcoords
 
-def clean_data(raw: gtfs_realtime_pb2.FeedMessage):
+def clean_data(raw: FeedMessage):
     """cleans the feed message, keeping and grouping only th einformation we need
 
     Args:
