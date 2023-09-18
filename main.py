@@ -15,6 +15,7 @@ import numpy as np
 import sqlite3
 import dotenv
 from result import Ok, Err, Result
+import queue
 from collections import deque
 
 MATRIX_WIDTH = 100
@@ -82,9 +83,9 @@ def main():
                 print(e)
                 return dynamic_hm
         print("\tcleaning data")
-        pos = clean_data(msg)
+        pos = list(clean_data(msg))
         print("\ttranslating coordinates")
-        if position_queue.count() == position_queue.maxlen:
+        if len(position_queue) == position_queue.maxlen:
             position_queue.pop()
         position_queue.append(pos)
         interpreted = interpret(position_queue, bounds, (MATRIX_WIDTH, MATRIX_HEIGHT))
@@ -215,6 +216,12 @@ miny={self.miny}
 maxy={self.maxy}
         """
         
+@dataclass
+class BusData:
+    id: int
+    lon: float
+    lat: float
+
 def translate_coords(coords, bounds: Bounds):
     b = bounds 
     newcoords = []
@@ -247,7 +254,7 @@ def clean_data(raw: gtfs_realtime_pb2.FeedMessage):
         in raw.entity
     )
 
-def interpret(data: deque[tuple[int, float, float]], bounds: Bounds, out_shape):
+def interpret(data: deque[list[tuple[int, float, float]]], bounds: Bounds, out_shape):
     """
     METRIC OF QUALITY
     takes a queue of the cached data frames.
@@ -261,16 +268,17 @@ def interpret(data: deque[tuple[int, float, float]], bounds: Bounds, out_shape):
     b = bounds
     (width, height) = out_shape
     out = [ [ set() for i in range(height) ] for j in range(width) ]
-    for id, lon, lat in data:
-        nx = np.interp(lon, 
-                       np.linspace(b.minx, b.maxx, MATRIX_WIDTH),
-                       np.linspace(0, MATRIX_WIDTH, MATRIX_WIDTH, endpoint=False), 
-                       )
-        ny = np.interp(lat, 
-                       np.linspace(b.miny, b.maxy, MATRIX_HEIGHT),
-                       np.linspace(0, MATRIX_HEIGHT, MATRIX_HEIGHT, endpoint=False), 
-                       )
-        out[nx][ny].add(id)
+    for frame in data:
+        for (id, lon, lat) in frame:
+            nx = np.interp(lon, 
+                        np.linspace(b.minx, b.maxx, MATRIX_WIDTH),
+                        np.linspace(0, MATRIX_WIDTH, MATRIX_WIDTH, endpoint=False), 
+                        )
+            ny = np.interp(lat, 
+                        np.linspace(b.miny, b.maxy, MATRIX_HEIGHT),
+                        np.linspace(0, MATRIX_HEIGHT, MATRIX_HEIGHT, endpoint=False), 
+                        )
+            out[int(nx)][int(ny)].add(id)
     out = map(lambda l: map(lambda s: s.count(), l), out)
     return np.array(out)
  
