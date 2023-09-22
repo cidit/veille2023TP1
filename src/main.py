@@ -12,7 +12,7 @@ from collections import deque
 from src.gtfs_realtime_pb2 import FeedMessage
 from src.config import Config
 from src.db import sqlite_numpy_bridge, DB
-from src.model import Bounds
+from src.model import Bounds, BusData
 from src.stm_api import Get
 
 
@@ -32,8 +32,7 @@ def main():
     fig, ax = plt.subplots()
     statics = Get.static_GTFS(config.validate)
 
-    shps = statics.shapes
-    bounds = Bounds(shps)
+    bounds = Bounds(statics.shps)
     
     # the following color map bit is taken from https://stackoverflow.com/questions/37327308/add-alpha-to-an-existing-colormap
     cmap = plt.get_cmap("autumn_r")
@@ -45,10 +44,10 @@ def main():
                             zorder=1,
                             alpha=1,
                             extent=[
-                                shps['shape_pt_lon'].min(),
-                                shps['shape_pt_lon'].max(),
-                                shps['shape_pt_lat'].min(),
-                                shps['shape_pt_lat'].max(),
+                                bounds.minx,
+                                bounds.maxx,
+                                bounds.miny,
+                                bounds.maxy,
                             ],
                             interpolation="spline16",
                             cmap=my_cmap,
@@ -122,21 +121,23 @@ def translate_coords(coords, bounds: Bounds):
     return newcoords
 
 def clean_data(raw: FeedMessage):
-    """cleans the feed message, keeping and grouping only th einformation we need
+    """cleans the feed message, keeping and grouping only the information we need
 
     Args:
         raw (gtfs_realtime_pb2.FeedMessage)
 
     Returns:
-        a generator of tuples
+        a list of BusData
     """
-    return (
-        (e.vehicle.vehicle.id, 
-         e.vehicle.position.longitude, 
-         e.vehicle.position.latitude)
+    return [
+        BusData(
+            id=int(e.vehicle.vehicle.id),
+            lon=float(e.vehicle.position.longitude),
+            lat=float(e.vehicle.position.latitude),   
+        )
         for e 
         in raw.entity
-    )
+    ]
 
 def interpret(data: deque[list[tuple[int, float, float]]], bounds: Bounds, out_shape):
     """
