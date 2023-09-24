@@ -5,9 +5,10 @@ import gtfs_kit as gk
 import requests
 from result import Err, Ok
 
-from src.gtfs_realtime_pb2 import FeedMessage
+from gtfs_realtime_pb2 import FeedMessage
 
 class Get:
+    @staticmethod
     def static_GTFS(validate: bool):
         """gets the static GTFS data and prints any validation warning.
         crashes the program in the event of any errors reported in the validation.
@@ -25,6 +26,7 @@ class Get:
          
         return feed
         
+    @staticmethod
     def realtime_feed():
         dyndat_url = "https://api.stm.info/pub/od/gtfs-rt/ic/v2/vehiclePositions"
         try:
