@@ -3,14 +3,14 @@ from collections import deque
 
 import numpy as np
 from gtfs_realtime_pb2 import FeedMessage
-import gtfs_kit as gk
-import matplotlib.path as mp
+import gtfs_kit as gk # type: ignore
+import matplotlib.path as mp # type: ignore
 
 from model import Bounds, BusData
 
 
 # TODO: make out_shape a Bounds
-def interpret(data: deque[list[tuple[int, float, float]]], bounds: Bounds, out_shape):
+def interpret(data: deque[list[tuple[int, float, float]]], bounds: Bounds, out_shape: Bounds):
     """
     METRIC OF QUALITY
     takes a queue of the cached data frames.
@@ -22,8 +22,8 @@ def interpret(data: deque[list[tuple[int, float, float]]], bounds: Bounds, out_s
     the output of this functions is a 2D numpy array of ints that can be fed directly to the heatmap.
     """
     b = bounds
-    (width, height) = out_shape
-    out = [ [ set() for i in range(height) ] for j in range(width) ]
+    (width, height) = (int(out_shape.maxx), int(out_shape.maxy))
+    out: list[list[set]]= [ [ set() for i in range(height) ] for j in range(width) ]
     for frame in data:
         for (id, lon, lat) in frame:
             nx = np.interp(lon, 
@@ -35,24 +35,8 @@ def interpret(data: deque[list[tuple[int, float, float]]], bounds: Bounds, out_s
                         np.linspace(0, height, height, endpoint=False), 
                         )
             out[int(nx)][int(ny)].add(id)
-    out = map(lambda l: map(lambda s: s.count(), l), out)
-    return np.array(out)
+    return np.array(map(lambda l: map(lambda s: len(s), l), out))
  
-
-def translate_coords(coords, bounds: Bounds):
-    b = bounds 
-    newcoords = []
-    for x, y in coords:
-        nx = np.interp(x, 
-                       np.linspace(b.minx, b.maxx, MATRIX_WIDTH),
-                       np.linspace(0, MATRIX_WIDTH, MATRIX_WIDTH, endpoint=False), 
-                       )
-        ny = np.interp(y, 
-                       np.linspace(b.miny, b.maxy, MATRIX_HEIGHT),
-                       np.linspace(0, MATRIX_HEIGHT, MATRIX_HEIGHT, endpoint=False), 
-                       )
-        newcoords.append((nx, ny))
-    return newcoords
 
 def clean_data(raw: FeedMessage):
     """cleans the feed message, keeping and grouping only the information we need

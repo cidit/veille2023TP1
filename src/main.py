@@ -1,9 +1,9 @@
-import gtfs_kit as gk
+import gtfs_kit as gk # type: ignore
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import matplotlib.path as mp
-from matplotlib.patches import PathPatch
-from matplotlib.animation import FuncAnimation
+import matplotlib.path as mp # type: ignore 
+from matplotlib.patches import PathPatch # type: ignore 
+from matplotlib.animation import FuncAnimation # type: ignore 
 import numpy as np
 import dotenv
 from result import Ok, Err, Result

@@ -1,7 +1,7 @@
 import os
 import pathlib
 import sys
-import gtfs_kit as gk
+import gtfs_kit as gk # type: ignore
 import requests
 from result import Err, Ok
 
