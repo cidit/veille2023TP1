@@ -1,8 +1,6 @@
 import gtfs_kit as gk # type: ignore
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import matplotlib.path as mp # type: ignore 
-from matplotlib.patches import PathPatch # type: ignore 
 from matplotlib.animation import FuncAnimation # type: ignore 
 import numpy as np
 import dotenv
@@ -13,7 +11,8 @@ from gtfs_realtime_pb2 import FeedMessage
 from config import Config
 from db import sqlite_numpy_bridge, DB
 from model import Bounds, BusData
-from processing import clean_data, interpret, parse_shape_instructions
+from processing import clean_data, interpret 
+from render import add_dyn_heatmap, create_custom_color_map, draw_map
 from stm_api import Get
 
 
@@ -28,48 +27,19 @@ def main():
     
     config = Config()
     position_queue = deque(maxlen=30)
-        
     db = DB(config.db_path, reset_db=config.reset_db)
     fig, ax = plt.subplots()
     statics = Get.static_GTFS(config.validate)
 
     bounds = Bounds.from_shapes(statics.shapes)
     
-    # the following color map bit is taken from https://stackoverflow.com/questions/37327308/add-alpha-to-an-existing-colormap
-    cmap = plt.get_cmap("autumn_r")
-    my_cmap = cmap(np.arange(cmap.N))
-    my_cmap[:,-1] = np.linspace(0, 1, cmap.N) 
-    my_cmap = mpl.colors.ListedColormap(my_cmap)
-    
-    dynamic_hm = ax.imshow(np.zeros((MATRIX_WIDTH, MATRIX_HEIGHT)),
-                            zorder=1,
-                            alpha=1,
-                            extent=[
-                                bounds.minx,
-                                bounds.maxx,
-                                bounds.miny,
-                                bounds.maxy,
-                            ],
-                            interpolation="spline16",
-                            cmap=my_cmap,
-                            vmin=0, vmax=5
-                            )
-    
-    
-    instructions = parse_shape_instructions(statics)
-    # the following is pretty much a copy paste of https://matplotlib.org/stable/gallery/shapes_and_collections/path_patch.html#sphx-glr-gallery-shapes-and-collections-path-patch-py
-    codes, verts = zip(*instructions)
-    path = mp.Path(verts, codes)
-    patch = PathPatch(path,
-                      facecolor="none",
-                      zorder=0,
-                      lw=0.5)
-    patchmap = ax.add_patch(patch)
-    x, y = zip(*path.vertices)
-    line, = ax.plot(x, y, 'g-', marker=None)
-    line.remove()
-    
-    
+    draw_map(ax, statics)
+    cmap=create_custom_color_map()
+    dynamic_hm = add_dyn_heatmap(ax,
+                                 hm_shape=Bounds(0, MATRIX_WIDTH, 0, MATRIX_HEIGHT),
+                                 data_bounds=bounds,
+                                 cmap=cmap)  
+        
     def update(_frame):
         print("updating...")
         print("\tfetching and parsing data")
