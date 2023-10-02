@@ -1,5 +1,6 @@
 import os
 import pickle
+from time import sleep
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation # type: ignore 
 import numpy as np
@@ -20,12 +21,12 @@ from stm_api import Get
 
 def main(reset_db: bool = True, 
          validate_statics: bool = True, 
-         db_path: str = os.getenv("DB_PATH", "data/db.sqlite")
+         db_path: str = os.getenv("DB_PATH", "data/db.sqlite"),
+         show: bool = True
          ):
     
     position_queue = deque(maxlen=30)
     db = DB(db_path, reset_db=reset_db)
-    fig, ax = plt.subplots()
     statics = Get.static_GTFS(validate=validate_statics)
 
     bounds = Bounds.from_shapes(statics.shapes)
@@ -35,6 +36,7 @@ def main(reset_db: bool = True,
                       100 # height
                       )
     
+    fig, ax = plt.subplots()
     draw_map(ax, statics)
     cmap = create_custom_color_map()
     dynamic_hm = add_dyn_heatmap(ax,
@@ -75,17 +77,28 @@ def main(reset_db: bool = True,
                         blit=True, 
                         interval=10_000, # once every 10s
                         cache_frame_data=False)
+    if show:
+        plt.show()
+    else:
+        # todo: collect data until 'q' pressed
+        pass
+    
+    
+    # reset the figs
+    fig, ax = plt.subplots()
+    draw_map(ax, statics)
+    dynamic_hm = add_dyn_heatmap(ax,
+                                 hm_shape=hm_shape,
+                                 data_bounds=bounds,
+                                 cmap=cmap)
 
-    plt.show()
-    
-    
-    # reset the DHM
-    dynamic_hm.set_data(np.zeros((hm_shape.maxx, hm_shape.maxy))) 
-    
-    bus_data = (pickle.loads(data) for data in db.read_from_oldest())
+
     
     # reset positions queue
     position_queue = deque(maxlen=30)
+    
+    bus_data = (pickle.loads(data) for data in db.read_from_oldest())
+    
     
     def transform(bd: list[BusData]):
         if len(position_queue) == position_queue.maxlen:
