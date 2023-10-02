@@ -1,10 +1,13 @@
-import gtfs_kit as gk # type: ignore
+import os
+import pickle
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation # type: ignore 
 import numpy as np
 import dotenv
 from result import Ok, Err, Result
 from collections import deque
+
+import typer
 
 from gtfs_realtime_pb2 import FeedMessage
 from config import Config
@@ -15,16 +18,15 @@ from render import add_dyn_heatmap, create_custom_color_map, draw_map
 from stm_api import Get
 
 
-def main():
-    print("Hello, World!")
-    dotenv.load_dotenv()
-    sqlite_numpy_bridge()
+def main(reset_db: bool = True, 
+         validate_statics: bool = True, 
+         db_path: str = os.getenv("DB_PATH", "data/db.sqlite")
+         ):
     
-    config = Config()
     position_queue = deque(maxlen=30)
-    db = DB(config.db_path, reset_db=config.reset_db)
+    db = DB(db_path, reset_db=reset_db)
     fig, ax = plt.subplots()
-    statics = Get.static_GTFS(config.validate)
+    statics = Get.static_GTFS(validate=validate_statics)
 
     bounds = Bounds.from_shapes(statics.shapes)
     hm_shape = Bounds(0, 
@@ -50,14 +52,14 @@ def main():
             case Err(e):
                 print("An error happened while fetching the dynamic date. returning early of the update function...")
                 print(e)
-                return dynamic_hm
+                return dynamic_hm,
         
         pos = clean_data(msg)
         
         if len(position_queue) == position_queue.maxlen:
             position_queue.pop()
         position_queue.append(pos)
-        # TODO: save data here
+        db.save(pickle.dumps(pos))
         
         interpreted = interpret(position_queue, bounds, hm_shape)
         print("\trotating dataset")
@@ -75,7 +77,35 @@ def main():
                         cache_frame_data=False)
 
     plt.show()
+    
+    
+    # reset the DHM
+    dynamic_hm.set_data(np.zeros((hm_shape.maxx, hm_shape.maxy))) 
+    
+    bus_data = (pickle.loads(data) for data in db.read_from_oldest())
+    
+    # reset positions queue
+    position_queue = deque(maxlen=30)
+    
+    def transform(bd: list[BusData]):
+        if len(position_queue) == position_queue.maxlen:
+            position_queue.pop()
+        position_queue.append(bd)
+        return interpret(position_queue, bounds=bounds, out_shape=hm_shape)
+    
+    frames = (transform(bd) for bd in bus_data)
+    
+    def update(frame):
+        new_matrix = np.rot90(frame, 1)
+        dynamic_hm.set_data(new_matrix)
+        return dynamic_hm,
+    
+    ani = FuncAnimation(fig, frames=frames, func=update, cache_frame_data=False)
+    ani.save("data/anim.gif", writer="ffmpeg", fps=30)
 
 
 if __name__ == "__main__":
-    main()
+    print("Hello, World!")
+    dotenv.load_dotenv()
+    sqlite_numpy_bridge()
+    typer.run(main) 

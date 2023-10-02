@@ -32,7 +32,7 @@ def create_custom_color_map():
     
     
 def add_dyn_heatmap(ax: axes.Axes, hm_shape: Bounds, data_bounds: Bounds, cmap: colors.ListedColormap):
-    ax.imshow(np.zeros((hm_shape.maxx, hm_shape.maxy)), # type: ignore 
+    return ax.imshow(np.zeros((hm_shape.maxx, hm_shape.maxy)), # type: ignore 
               zorder=1,
               alpha=1,
               extent=[

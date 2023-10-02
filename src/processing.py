@@ -9,8 +9,7 @@ import matplotlib.path as mp # type: ignore
 from model import Bounds, BusData
 
 
-# TODO: make out_shape a Bounds
-def interpret(data: deque[list[tuple[int, float, float]]], bounds: Bounds, out_shape: Bounds):
+def interpret(data: deque[list[BusData]], bounds: Bounds, out_shape: Bounds):
     """
     METRIC OF QUALITY
     takes a queue of the cached data frames.
@@ -25,17 +24,19 @@ def interpret(data: deque[list[tuple[int, float, float]]], bounds: Bounds, out_s
     (width, height) = (int(out_shape.maxx), int(out_shape.maxy))
     out: list[list[set]]= [ [ set() for i in range(height) ] for j in range(width) ]
     for frame in data:
-        for (id, lon, lat) in frame:
-            nx = np.interp(lon, 
+        for bus in frame:
+            nx = np.interp(bus.lon, 
                         np.linspace(b.minx, b.maxx, width),
                         np.linspace(0, width, width, endpoint=False), 
                         )
-            ny = np.interp(lat, 
+            ny = np.interp(bus.lat, 
                         np.linspace(b.miny, b.maxy, height),
                         np.linspace(0, height, height, endpoint=False), 
                         )
-            out[int(nx)][int(ny)].add(id)
-    return np.array(map(lambda l: map(lambda s: len(s), l), out))
+            out[int(nx)][int(ny)].add(bus.id)
+    # num_occurence_per_space = map(lambda l: map(lambda s: len(s), l), out) 
+    num_occurence_per_space = [[len(s) for s in l] for l in out]
+    return np.array(num_occurence_per_space)
  
 
 def clean_data(raw: FeedMessage):
