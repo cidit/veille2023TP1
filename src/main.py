@@ -22,7 +22,9 @@ from stm_api import Get
 def main(reset_db: bool = True, 
          validate_statics: bool = True, 
          db_path: str = os.getenv("DB_PATH", "data/db.sqlite"),
-         show: bool = True
+         show: bool = True,
+         save: bool = True,
+         out_path: str | None = None,
          ):
     
     position_queue = deque(maxlen=30)
